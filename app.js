@@ -1,25 +1,61 @@
-const KEY = 'roadside-tallinn-lv-v1';
-const initialTasks = [{
-  id: 'finala-uzvaras-poza',
-  title: 'Fināla uzvaras poza',
-  category: 'Kopīgs mirklis',
-  description: 'Fotogrāfs: Garāmgājējs vai selfijs spogulī\n\nPozē: Elīza, Raimonds, Laura un Reinis\n\nUzdevums: Fināla uzvaras poza visiem četriem kopā svētdienā pirms došanās mājup!',
-  done: false
-}];
-let tasks = initialTasks.map(t => ({ ...t }));
+import { initialTasks } from './tasks.js';
+const KEY = 'roadside-tallinn-photo-v2';
+const LEGACY_KEY = 'roadside-tallinn-lv-v1';
+const categories = [...new Set(initialTasks.map(t => t.category))];
+let tasks = initialTasks.map(t => ({ ...t, done: false }));
 let storageAvailable = true;
+const validTask = t => t && typeof t.id === 'string' && typeof t.title === 'string' && typeof t.category === 'string' && typeof t.description === 'string' && typeof t.done === 'boolean';
 try {
-  const saved = JSON.parse(localStorage.getItem(KEY));
-  if (Array.isArray(saved) && saved.every(t => t && typeof t.id === 'string' && typeof t.title === 'string' && typeof t.category === 'string' && typeof t.description === 'string' && typeof t.done === 'boolean')) tasks = saved;
+  const raw = localStorage.getItem(KEY);
+  if (raw) {
+    const saved = JSON.parse(raw);
+    if (saved && saved.completed && Array.isArray(saved.customTasks)) {
+      tasks.forEach(t => t.done = saved.completed[t.id] === true);
+      tasks.push(...saved.customTasks.filter(validTask).filter(t => !initialTasks.some(base => base.id === t.id)));
+    }
+  } else {
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY));
+    if (Array.isArray(legacy)) tasks.push(...legacy.filter(validTask).filter(t => t.id !== 'finala-uzvaras-poza' && !t.id.startsWith('sample-')));
+  }
 } catch { storageAvailable = false; }
 let filter = 'all';
-const flipped = new Set();
-const icons = { 'Laba kompānija': '☺', 'Mazs līkums': '↗', 'Kopīgs mirklis': '✧', 'Ceļā': '♧' };
+let category = 'all';
 const $ = s => document.querySelector(s);
 let toastTimer;
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 3500); }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(tasks)); } catch { storageAvailable = false; toast('Saglabāšana nav pieejama. Progress paliks tikai šajā apmeklējumā.'); } }
+function save() {
+  try {
+    const completed = Object.fromEntries(tasks.filter(t => t.done).map(t => [t.id, true]));
+    const customTasks = tasks.filter(t => !initialTasks.some(base => base.id === t.id));
+    localStorage.setItem(KEY, JSON.stringify({ completed, customTasks }));
+  } catch { storageAvailable = false; toast('Saglabāšana nav pieejama. Progress paliks tikai šajā apmeklējumā.'); }
+}
 function el(tag, className, text) { const e = document.createElement(tag); if (className) e.className = className; if (text !== undefined) e.textContent = text; return e; }
+function cardFor(task) {
+  const card = el('article', `card${task.done ? ' done' : ''}`); card.dataset.id = task.id;
+  const content = el('div', 'card-content');
+  const meta = el('div', 'card-meta'); meta.append(el('span', '', task.category), el('span', 'card-number', String(tasks.indexOf(task) + 1).padStart(2, '0')));
+  content.append(meta, el('h4', 'card-title', task.title));
+  if (task.photographer || task.participants || task.flash) {
+    const details = el('dl', 'photo-details');
+    for (const [label, value] of [['Fotogrāfs', task.photographer], ['Pozē', task.participants], ['Zibspuldze', task.flash]]) {
+      if (!value) continue;
+      const row = el('div', 'photo-detail'); row.append(el('dt', '', label), el('dd', '', value)); details.append(row);
+    }
+    content.append(details);
+  }
+  content.append(el('p', 'card-description', task.description));
+  const toggle = el('button', 'done-toggle'); toggle.type = 'button'; toggle.setAttribute('aria-pressed', task.done);
+  toggle.setAttribute('aria-label', `${task.done ? 'Atzīmēt kā neizpildītu' : 'Atzīmēt kā izpildītu'}: ${task.title}`);
+  const icon = el('span', 'done-icon', task.done ? '✓' : ''); icon.setAttribute('aria-hidden', 'true');
+  toggle.append(icon, el('span', '', task.done ? 'Izpildīts · Atcelt' : 'Atzīmēt kā izpildītu'));
+  toggle.addEventListener('click', () => {
+    task.done = !task.done; save(); render();
+    const replacement = Array.from(document.querySelectorAll('.card')).find(c => c.dataset.id === task.id);
+    if (replacement) replacement.querySelector('.done-toggle').focus(); else document.querySelector('.filter.active').focus();
+  });
+  card.append(content, toggle); return card;
+}
 function render() {
   const done = tasks.filter(t => t.done).length;
   $('#all-count').textContent = tasks.length; $('#todo-count').textContent = tasks.length - done; $('#done-count').textContent = done;
@@ -27,39 +63,29 @@ function render() {
   $('#progress-fill').style.width = `${tasks.length ? done / tasks.length * 100 : 0}%`;
   $('.progress-track').setAttribute('aria-valuemax', tasks.length); $('.progress-track').setAttribute('aria-valuenow', done);
   $('#progress-message').textContent = done === tasks.length && tasks.length ? 'Viss izpildīts! Atmiņas, kas paliks ar mums.' : done ? 'Vēl viena kopīga atmiņa. Turpinām!' : 'Kopīgās atmiņas sākas ar pirmo kartīti.';
-  $('#sample-notice').hidden = !tasks.some(t => t.id.startsWith('sample-'));
   document.querySelectorAll('.filter').forEach(b => { const active = b.dataset.filter === filter; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active); });
-  const visible = tasks.filter(t => filter === 'all' || (filter === 'done' ? t.done : !t.done));
+  const visible = tasks.filter(t => (category === 'all' || t.category === category) && (filter === 'all' || (filter === 'done' ? t.done : !t.done)));
   $('#empty').hidden = visible.length > 0;
-  $('#cards').replaceChildren(...visible.map(task => {
-    const card = el('article', `card${task.done ? ' done' : ''}${flipped.has(task.id) ? ' flipped' : ''}`);
-    card.dataset.id = task.id;
-    const button = el('button', 'card-flip'); button.type = 'button'; button.setAttribute('aria-label', `${task.title}: ${flipped.has(task.id) ? 'paslēpt' : 'atklāt'} uzdevumu`); button.setAttribute('aria-expanded', flipped.has(task.id));
-    const inner = el('span', 'card-inner');
-    const front = el('span', 'card-face card-front'); const back = el('span', 'card-face card-back');
-    const isFlipped = flipped.has(task.id); front.setAttribute('aria-hidden', isFlipped); back.setAttribute('aria-hidden', !isFlipped);
-    const meta = el('span', 'card-meta'); meta.append(el('span', '', task.category), el('span', 'card-number', String(tasks.indexOf(task) + 1).padStart(2, '0')));
-    const bottom = el('span', 'card-bottom'); bottom.append(el('span', '', 'Piedzīvojums gaida'), el('span', 'arrow', '↻'));
-    front.append(meta, el('span', 'card-icon', icons[task.category] || '✧'), el('span', 'card-title', task.title), bottom);
-    back.append(el('span', 'card-meta', 'TAVS UZDEVUMS'), el('span', 'card-title', task.title), el('span', 'card-description', task.description), el('span', 'card-bottom', '↻ Pieskaries, lai apgrieztu'));
-    inner.append(front, back); button.append(inner);
-    button.addEventListener('click', () => {
-      const active = !flipped.has(task.id); if (active) flipped.add(task.id); else flipped.delete(task.id);
-      card.classList.toggle('flipped', active); button.setAttribute('aria-expanded', active); button.setAttribute('aria-label', `${task.title}: ${active ? 'paslēpt' : 'atklāt'} uzdevumu`); front.setAttribute('aria-hidden', active); back.setAttribute('aria-hidden', !active);
-    });
-    const toggle = el('button', 'done-toggle', task.done ? 'Gatavs! Atmiņa saglabāta.' : 'Atzīmēt kā izpildītu'); toggle.type = 'button'; toggle.setAttribute('aria-pressed', task.done); toggle.setAttribute('aria-label', `${task.done ? 'Atzīmēt kā neizpildītu' : 'Atzīmēt kā izpildītu'}: ${task.title}`);
-    toggle.addEventListener('click', () => { task.done = !task.done; save(); render(); const replacement = Array.from(document.querySelectorAll('.card')).find(c => c.dataset.id === task.id); if (replacement) replacement.querySelector('.done-toggle').focus(); else document.querySelector('.filter.active').focus(); });
-    card.append(button, toggle); return card;
-  }));
+  const groups = [...new Set(tasks.map(t => t.category))].map(name => {
+    const groupTasks = visible.filter(t => t.category === name); if (!groupTasks.length) return null;
+    const section = el('section', 'task-group'); const heading = el('h3', 'category-heading', name);
+    heading.append(el('span', '', `${groupTasks.length} ${groupTasks.length === 1 ? 'uzdevums' : 'uzdevumi'}`));
+    const cards = el('div', 'cards'); cards.append(...groupTasks.map(cardFor)); section.append(heading, cards); return section;
+  }).filter(Boolean);
+  $('#cards').replaceChildren(...groups);
+}
+for (const name of [...new Set([...categories, ...tasks.map(t => t.category)])]) {
+  for (const select of [$('#category-filter'), $('#task-category')]) { const option = el('option', '', name); option.value = name; select.append(option); }
 }
 document.querySelectorAll('.filter').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; render(); }));
+$('#category-filter').addEventListener('change', e => { category = e.target.value; render(); });
 $('#add-task').addEventListener('click', () => $('#task-dialog').showModal());
 $('#close-dialog').addEventListener('click', () => $('#task-dialog').close());
 $('#task-form').addEventListener('submit', e => {
   e.preventDefault(); const title = $('#task-title').value.trim(), description = $('#task-description').value.trim();
   if (!title || !description) { toast('Ieraksti nosaukumu un uzdevumu.'); return; }
   tasks.push({ id: crypto.randomUUID(), title, description, category: $('#task-category').value, done: false });
-  save(); filter = 'all'; render(); $('#task-form').reset(); $('#task-dialog').close(); toast('Vēl viens piedzīvojums pievienots!');
+  save(); filter = 'all'; category = 'all'; $('#category-filter').value = 'all'; render(); $('#task-form').reset(); $('#task-dialog').close(); toast('Vēl viens piedzīvojums pievienots!');
 });
 render();
 if (!storageAvailable) toast('Saglabāšana nav pieejama. Progress paliks tikai šajā apmeklējumā.');

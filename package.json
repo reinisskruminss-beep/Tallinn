@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.mjs", "dev": "node server.mjs", "check": "node --check app.js && node --check server.mjs" },
-  "engines": { "node": ">=20" }
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "check": "node --check app.js && node --check tasks.js && node --check server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
