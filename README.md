@@ -1,6 +1,6 @@
 # Tallinn road trip deck
 
-A responsive, dependency-free page for a trip with friends. Flip challenge cards, mark them done, filter your deck, pick a random unfinished challenge, or add your own tasks. The interface is in Latvian and includes the supplied “Fināla uzvaras poza” task for Elīza, Raimonds, Laura, and Reinis.
+A responsive, dependency-free page for a trip with friends. Flip challenge cards, mark them done, filter your deck, or add your own tasks. The interface is in Latvian and includes the supplied “Fināla uzvaras poza” task for Elīza, Raimonds, Laura, and Reinis.
 
 ## Run
 

@@ -53,13 +53,6 @@ function render() {
   }));
 }
 document.querySelectorAll('.filter').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; render(); }));
-$('#surprise').addEventListener('click', () => {
-  const available = tasks.filter(t => !t.done);
-  if (!available.length) { toast('Viss izpildīts! Pievieno vēl kādu uzdevumu.'); return; }
-  const task = available[Math.floor(Math.random() * available.length)]; filter = 'all'; flipped.add(task.id); render();
-  const card = Array.from(document.querySelectorAll('.card')).find(c => c.dataset.id === task.id);
-  card.classList.add('picked'); card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' }); card.querySelector('.card-flip').focus({ preventScroll: true });
-});
 $('#add-task').addEventListener('click', () => $('#task-dialog').showModal());
 $('#close-dialog').addEventListener('click', () => $('#task-dialog').close());
 $('#task-form').addEventListener('submit', e => {
