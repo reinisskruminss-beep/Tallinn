@@ -75,17 +75,10 @@ function render() {
   $('#cards').replaceChildren(...groups);
 }
 for (const name of [...new Set([...categories, ...tasks.map(t => t.category)])]) {
-  for (const select of [$('#category-filter'), $('#task-category')]) { const option = el('option', '', name); option.value = name; select.append(option); }
+  for (const select of [$('#category-filter')]) { const option = el('option', '', name); option.value = name; select.append(option); }
 }
 document.querySelectorAll('.filter').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; render(); }));
 $('#category-filter').addEventListener('change', e => { category = e.target.value; render(); });
-$('#add-task').addEventListener('click', () => $('#task-dialog').showModal());
-$('#close-dialog').addEventListener('click', () => $('#task-dialog').close());
-$('#task-form').addEventListener('submit', e => {
-  e.preventDefault(); const title = $('#task-title').value.trim(), description = $('#task-description').value.trim();
-  if (!title || !description) { toast('Ieraksti nosaukumu un uzdevumu.'); return; }
-  tasks.push({ id: crypto.randomUUID(), title, description, category: $('#task-category').value, done: false });
-  save(); filter = 'all'; category = 'all'; $('#category-filter').value = 'all'; render(); $('#task-form').reset(); $('#task-dialog').close(); toast('Vēl viens piedzīvojums pievienots!');
-});
+
 render();
 if (!storageAvailable) toast('Saglabāšana nav pieejama. Progress paliks tikai šajā apmeklējumā.');
