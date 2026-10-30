@@ -64,12 +64,6 @@ function render() {
   $('.progress-track').setAttribute('aria-valuemax', tasks.length); $('.progress-track').setAttribute('aria-valuenow', done);
   $('#progress-message').textContent = done === tasks.length && tasks.length ? 'Viss izpildīts! Atmiņas, kas paliks ar mums.' : done ? 'Vēl viena kopīga atmiņa. Turpinām!' : 'Kopīgās atmiņas sākas ar pirmo kartīti.';
   document.querySelectorAll('.filter').forEach(b => { const active = b.dataset.filter === filter; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active); });
-  document.querySelectorAll('.category-button').forEach(button => {
-    const active = button.dataset.category === category;
-    button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
-    const count = tasks.filter(t => (button.dataset.category === 'all' || t.category === button.dataset.category) && (filter === 'all' || (filter === 'done' ? t.done : !t.done))).length;
-    button.querySelector('span').textContent = count;
-  });
   const visible = tasks.filter(t => (category === 'all' || t.category === category) && (filter === 'all' || (filter === 'done' ? t.done : !t.done)));
   $('#empty').hidden = visible.length > 0;
   const groups = [...new Set(tasks.map(t => t.category))].map(name => {
@@ -80,23 +74,18 @@ function render() {
   }).filter(Boolean);
   $('#cards').replaceChildren(...groups);
 }
-for (const name of ['all', ...new Set([...categories, ...tasks.map(t => t.category)])]) {
-  const button = el('button', 'category-button', name === 'all' ? 'Visas kategorijas' : name);
-  button.type = 'button'; button.dataset.category = name; button.append(el('span'));
-  button.addEventListener('click', () => { category = name; render(); });
-  $('#category-filters').append(button);
-  if (name !== 'all') {
-    const option = el('option', '', name); option.value = name; $('#task-category').append(option);
-  }
+for (const name of [...new Set([...categories, ...tasks.map(t => t.category)])]) {
+  for (const select of [$('#category-filter'), $('#task-category')]) { const option = el('option', '', name); option.value = name; select.append(option); }
 }
 document.querySelectorAll('.filter').forEach(b => b.addEventListener('click', () => { filter = b.dataset.filter; render(); }));
+$('#category-filter').addEventListener('change', e => { category = e.target.value; render(); });
 $('#add-task').addEventListener('click', () => $('#task-dialog').showModal());
 $('#close-dialog').addEventListener('click', () => $('#task-dialog').close());
 $('#task-form').addEventListener('submit', e => {
   e.preventDefault(); const title = $('#task-title').value.trim(), description = $('#task-description').value.trim();
   if (!title || !description) { toast('Ieraksti nosaukumu un uzdevumu.'); return; }
   tasks.push({ id: crypto.randomUUID(), title, description, category: $('#task-category').value, done: false });
-  save(); filter = 'all'; category = 'all'; render(); $('#task-form').reset(); $('#task-dialog').close(); toast('Vēl viens piedzīvojums pievienots!');
+  save(); filter = 'all'; category = 'all'; $('#category-filter').value = 'all'; render(); $('#task-form').reset(); $('#task-dialog').close(); toast('Vēl viens piedzīvojums pievienots!');
 });
 render();
 if (!storageAvailable) toast('Saglabāšana nav pieejama. Progress paliks tikai šajā apmeklējumā.');
